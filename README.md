@@ -67,7 +67,7 @@ streamlit run app.py
 
   
 
-**How to Use**
+## **How to Use**
 
 1.  Launch the app using the command above.
 
@@ -79,7 +79,7 @@ streamlit run app.py
 
   
 
-**Future Enhancements**
+## **Future Enhancements**
 
 •  Implement time complexity analysis for each step.
 
@@ -89,7 +89,7 @@ streamlit run app.py
 
   
 
-**Contributing**
+## **Contributing**
 
 Contributions are welcome! Feel free to open issues or submit pull requests to enhance the tool.
 
@@ -97,7 +97,7 @@ Contributions are welcome! Feel free to open issues or submit pull requests to e
 
 
 
-**Contact**
+## **Contact**
 
   
 
