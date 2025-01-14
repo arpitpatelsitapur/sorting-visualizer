@@ -303,7 +303,6 @@ def run_animation():
     with col1:
         st.altair_chart(visualize_array(
             st.session_state.initial_data,
-            st.session_state.color_scheme,
             "Initial Array"
         ))
     
@@ -312,7 +311,6 @@ def run_animation():
         current_array = st.session_state.sorting_history[st.session_state.current_step]
         st.altair_chart(visualize_array(
             current_array,
-            st.session_state.color_scheme,
             "Current Sorting State"
         ))
     
@@ -325,7 +323,7 @@ def run_animation():
         if st.session_state.current_step < len(st.session_state.sorting_history) - 1:
             time.sleep(st.session_state.animation_speed)
             st.session_state.current_step += 1
-            st.experimental_rerun()
+            st.rerun()  # Using st.rerun() instead of st.experimental_rerun()
         else:
             st.session_state.is_playing = False
 
@@ -342,13 +340,6 @@ def main():
             list(ALGORITHM_INFO.keys())
         )
         
-        # Color scheme selection
-        color_scheme = st.selectbox(
-            "Color Scheme",
-            ["Rainbow"],
-            on_change=lambda: setattr(st.session_state, 'color_scheme', color_scheme)
-        )
-        
         # Input Data Management
         st.subheader("Data Management")
         
@@ -362,11 +353,12 @@ def main():
             
             if st.button("Generate Data"):
                 st.session_state.initial_data = generate_initial_data(input_method, array_size)
+                st.rerun()
         else:
             if st.button("Reset Data"):
                 st.session_state.initial_data = None
                 reset_visualization()
-                st.experimental_rerun()
+                st.rerun()
 
         # Save current dataset
         if st.session_state.initial_data is not None:
@@ -388,7 +380,6 @@ def main():
             # Show single initial visualization before sorting starts
             st.altair_chart(visualize_array(
                 st.session_state.initial_data,
-                st.session_state.color_scheme,
                 "Initial Array"
             ))
             
@@ -404,6 +395,7 @@ def main():
                 col1.metric("Comparisons", result['comparisons'])
                 col2.metric("Swaps", result['swaps'])
                 col3.metric("Time", f"{result['time']:.4f} seconds")
+                st.rerun()
         else:
             # Render animation controls and run animation
             render_animation_controls()
@@ -459,6 +451,10 @@ def main():
         - Observe step-by-step execution
         - Experiment with different data patterns
         """)
+
+    # Add author signature 
+    st.markdown("---")
+    st.markdown("Created with ❤️ by Arpit Patel")
 
 if __name__ == "__main__":
     main()
