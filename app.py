@@ -13,14 +13,16 @@ if 'is_playing' not in st.session_state:
     st.session_state.is_playing = False
 if 'sorting_history' not in st.session_state:
     st.session_state.sorting_history = []
-if 'original_array' not in st.session_state:
-    st.session_state.original_array = None
+if 'initial_data' not in st.session_state:
+    st.session_state.initial_data = None
 if 'color_scheme' not in st.session_state:
     st.session_state.color_scheme = "Blues"
 if 'comparison_data' not in st.session_state:
     st.session_state.comparison_data = []
-if 'data' not in st.session_state:
-    st.session_state.data = None
+if 'animation_speed' not in st.session_state:
+    st.session_state.animation_speed = 1.0
+if 'sorting_started' not in st.session_state:
+    st.session_state.sorting_started = False
 
 # Algorithm Information
 ALGORITHM_INFO = {
@@ -35,12 +37,6 @@ ALGORITHM_INFO = {
         "space_complexity": "O(log n)",
         "stable": False,
         "description": "Efficient divide-and-conquer algorithm. Great for large datasets."
-    },
-    "Merge Sort": {
-        "time_complexity": {"best": "O(n log n)", "average": "O(n log n)", "worst": "O(n log n)"},
-        "space_complexity": "O(n)",
-        "stable": True,
-        "description": "Stable divide-and-conquer algorithm. Consistent performance but requires extra space."
     },
     "Insertion Sort": {
         "time_complexity": {"best": "O(n)", "average": "O(n²)", "worst": "O(n²)"},
@@ -62,18 +58,13 @@ ALGORITHM_INFO = {
     }
 }
 
-
 # Color scheme generator
-def get_color_scheme(values, scheme_name):
+def get_color_scheme(values, scheme_name=None):
+    """Generate rainbow colors based on values using HSL color space"""
     min_val, max_val = min(values), max(values)
-    if scheme_name == "Rainbow":
-        return [f"hsl({int(360 * (v - min_val)/(max_val - min_val))}, 70%, 50%)" for v in values]
-    elif scheme_name == "Blues":
-        return [f"rgb(0, 0, {int(155 + 100 * (v - min_val)/(max_val - min_val))})" for v in values]
-    elif scheme_name == "Heat":
-        return [f"rgb({int(255 * (v - min_val)/(max_val - min_val))}, 0, 0)" for v in values]
-    return ["steelblue" for _ in values]  # default
-
+    # Map each value to a hue between 0 and 360 degrees
+    # Using HSL with constant saturation and lightness for vibrant rainbow colors
+    return [f"hsl({int(260 * (v - min_val)/(max_val - min_val))}, 70%, 50%)" for v in values]
 
 # Performance tracking wrapper
 def track_sorting(func):
@@ -104,7 +95,7 @@ def track_sorting(func):
     return wrapper
 
 # [Keep all your existing sorting algorithm implementations here: bubble_sort, quick_sort_steps, 
-# merge_sort_steps, insertion_sort, heap_sort, selection_sort]
+# insertion_sort, heap_sort, selection_sort]
 
 @track_sorting
 def bubble_sort(arr, compare, swap):
@@ -145,49 +136,6 @@ def quick_sort_steps(arr, compare, swap):
             quick_sort(arr, pi + 1, high)
     
     quick_sort(arr, 0, len(arr)-1)
-    return steps
-
-@track_sorting
-def merge_sort_steps(arr, compare, swap):
-    steps = []
-    
-    def merge(arr, l, m, r):
-        left = arr[l:m+1]
-        right = arr[m+1:r+1]
-        i = j = 0
-        k = l
-        
-        while i < len(left) and j < len(right):
-            if compare() and left[i] <= right[j]:
-                arr[k] = left[i]
-                i += 1
-            else:
-                if swap():
-                    arr[k] = right[j]
-                    j += 1
-            k += 1
-            steps.append(arr.copy())
-            
-        while i < len(left):
-            arr[k] = left[i]
-            i += 1
-            k += 1
-            steps.append(arr.copy())
-            
-        while j < len(right):
-            arr[k] = right[j]
-            j += 1
-            k += 1
-            steps.append(arr.copy())
-    
-    def merge_sort(arr, l, r):
-        if l < r:
-            m = (l + r) // 2
-            merge_sort(arr, l, m)
-            merge_sort(arr, m + 1, r)
-            merge(arr, l, m, r)
-    
-    merge_sort(arr, 0, len(arr)-1)
     return steps
 
 @track_sorting
@@ -256,11 +204,28 @@ def selection_sort(arr, compare, swap):
 ALGORITHM_FUNCTIONS = {
     "Bubble Sort": bubble_sort,
     "Quick Sort": quick_sort_steps,
-    "Merge Sort": merge_sort_steps,
     "Insertion Sort": insertion_sort,
     "Heap Sort": heap_sort,
     "Selection Sort": selection_sort
 }
+
+def generate_initial_data(input_method, array_size):
+    if input_method == "Random Array":
+        return np.random.randint(1, 100, array_size)
+    elif input_method == "Nearly Sorted Array":
+        data = np.sort(np.random.randint(1, 100, array_size))
+        for _ in range(array_size // 10):
+            i, j = np.random.randint(0, array_size, 2)
+            data[i], data[j] = data[j], data[i]
+        return data
+    else:  # Reverse Sorted Array
+        return np.sort(np.random.randint(1, 100, array_size))[::-1]
+
+def reset_visualization():
+    st.session_state.current_step = 0
+    st.session_state.is_playing = False
+    st.session_state.sorting_started = False
+    st.session_state.sorting_history = []
 
 def render_animation_controls():
     """Renders the animation control buttons and progress bar"""
@@ -272,69 +237,47 @@ def render_animation_controls():
         st.progress(progress)
     
     # Create button columns for controls
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("Play"):
+        if st.button("Start Animation"):
             st.session_state.is_playing = True
-            # Reset to start if we're at the end
-            if st.session_state.current_step >= len(st.session_state.sorting_history) - 1:
-                st.session_state.current_step = 0
+            st.session_state.current_step = 0
 
     with col2:
         if st.button("Pause"):
             st.session_state.is_playing = False
 
     with col3:
-        if st.button("Step Back"):
-            if st.session_state.current_step > 0:
-                st.session_state.current_step -= 1
-                st.session_state.is_playing = False
-
-    with col4:
-        if st.button("Step Forward"):
-            if st.session_state.current_step < len(st.session_state.sorting_history) - 1:
-                st.session_state.current_step += 1
-                st.session_state.is_playing = False
-
-    with col5:
         if st.button("Reset"):
-            st.session_state.current_step = 0
-            st.session_state.is_playing = False
+            reset_visualization()
 
     # Add speed control
-    speed = st.slider("Animation Speed", 
-                     min_value=0.1, 
+    speed = st.slider("Animation Speed(larger value = slower animation)", 
+                     min_value=0.01, 
                      max_value=2.0, 
-                     value=1.0, 
-                     step=0.1,
-                     help="Adjust animation speed (larger value = slower animation)")
+                     value=st.session_state.animation_speed, 
+                     step=0.05,
+                     on_change=lambda: setattr(st.session_state, 'animation_speed', speed))
+    
     return speed
 
-def run_animation():
-    """Runs the sorting animation"""
-    if len(st.session_state.sorting_history) == 0:
-        return
-
-    # Create a placeholder for the visualization
-    vis_placeholder = st.empty()
-    
-    # Get current array state
-    current_array = st.session_state.sorting_history[st.session_state.current_step]
-    total_steps = len(st.session_state.sorting_history)
-    
-    # Create visualization
+def visualize_array(data, color_scheme, title=""):
     df = pd.DataFrame({
-        'Index': range(len(current_array)),
-        'Value': current_array,
-        'Color': get_color_scheme(current_array, st.session_state.color_scheme)
+        'Index': range(len(data)),
+        'Value': data,
+        'Color': get_color_scheme(data, color_scheme)
     })
 
     chart = alt.Chart(df).mark_bar().encode(
         x='Index:O',
         y='Value:Q',
         color=alt.Color('Color:N', scale=None)
-    ).properties(width=600, height=300)
+    ).properties(
+        width=400,  # Reduced width for side-by-side display
+        height=250,
+        title=title
+    )
 
     labels = alt.Chart(df).mark_text(
         align='center',
@@ -346,23 +289,45 @@ def run_animation():
         text='Value:Q'
     )
     
-    # Display the current state
-    vis_placeholder.altair_chart(chart + labels)
+    return chart + labels
+
+def run_animation():
+    """Runs the sorting animation with side-by-side comparison"""
+    if len(st.session_state.sorting_history) == 0:
+        return
+
+    # Create two columns for side-by-side visualization
+    col1, col2 = st.columns(2)
+    
+    # Display initial state in left column
+    with col1:
+        st.altair_chart(visualize_array(
+            st.session_state.initial_data,
+            st.session_state.color_scheme,
+            "Initial Array"
+        ))
+    
+    # Display current sorting state in right column
+    with col2:
+        current_array = st.session_state.sorting_history[st.session_state.current_step]
+        st.altair_chart(visualize_array(
+            current_array,
+            st.session_state.color_scheme,
+            "Current Sorting State"
+        ))
     
     # Display step information
+    total_steps = len(st.session_state.sorting_history)
     st.write(f"Step {st.session_state.current_step + 1} of {total_steps}")
     
     # Handle animation
     if st.session_state.is_playing:
         if st.session_state.current_step < len(st.session_state.sorting_history) - 1:
-            time.sleep(0.5)  # Animation speed delay
+            time.sleep(st.session_state.animation_speed)
             st.session_state.current_step += 1
             st.experimental_rerun()
         else:
             st.session_state.is_playing = False
-
-
-
 
 def main():
     st.title("Sorting Algorithm Visualizer")
@@ -380,34 +345,33 @@ def main():
         # Color scheme selection
         color_scheme = st.selectbox(
             "Color Scheme",
-            ["Rainbow", "Blues", "Heat", "Default"]
+            ["Rainbow"],
+            on_change=lambda: setattr(st.session_state, 'color_scheme', color_scheme)
         )
-        st.session_state.color_scheme = color_scheme
         
         # Input Data Management
         st.subheader("Data Management")
         
-        # Input method selection
-        input_method = st.selectbox(
-            "Select Input Method",
-            ["Random Array", "Nearly Sorted Array", "Reverse Sorted Array"]
-        )
-        array_size = st.slider("Array Size", 5, 50, 20)
+        # Only show data generation controls if no initial data exists
+        if st.session_state.initial_data is None:
+            input_method = st.selectbox(
+                "Select Input Method",
+                ["Random Array", "Nearly Sorted Array", "Reverse Sorted Array"]
+            )
+            array_size = st.slider("Array Size", 5, 50, 10)
             
-        if input_method == "Random Array":
-            st.session_state.data = np.random.randint(1, 100, array_size)
-        elif input_method == "Nearly Sorted Array":
-            st.session_state.data = np.sort(np.random.randint(1, 100, array_size))
-            for _ in range(array_size // 10):
-                i, j = np.random.randint(0, array_size, 2)
-                st.session_state.data[i], st.session_state.data[j] = st.session_state.data[j], st.session_state.data[i]
-        else:  # Reverse Sorted Array
-            st.session_state.data = np.sort(np.random.randint(1, 100, array_size))[::-1]
+            if st.button("Generate Data"):
+                st.session_state.initial_data = generate_initial_data(input_method, array_size)
+        else:
+            if st.button("Reset Data"):
+                st.session_state.initial_data = None
+                reset_visualization()
+                st.experimental_rerun()
 
         # Save current dataset
-        if st.button("Save Current Dataset"):
-            if st.session_state.data is not None:
-                download_data = json.dumps(st.session_state.data.tolist())
+        if st.session_state.initial_data is not None:
+            if st.button("Save Current Dataset"):
+                download_data = json.dumps(st.session_state.initial_data.tolist())
                 st.download_button(
                     "Download JSON",
                     download_data,
@@ -418,53 +382,36 @@ def main():
     # Main content area
     st.subheader("Visualization")
 
-    # Initial visualization of unsorted data
-    if st.session_state.data is not None:
-        df = pd.DataFrame({
-            'Index': range(len(st.session_state.data)),
-            'Value': st.session_state.data,
-            'Color': get_color_scheme(st.session_state.data, st.session_state.color_scheme)
-        })
-
-        chart = alt.Chart(df).mark_bar().encode(
-            x='Index:O',
-            y='Value:Q',
-            color=alt.Color('Color:N', scale=None)
-        ).properties(width=600, height=300)
-
-        labels = alt.Chart(df).mark_text(
-            align='center',
-            baseline='bottom',
-            dy=-5
-        ).encode(
-            x='Index:O',
-            y='Value:Q',
-            text='Value:Q'
-        )
-        st.altair_chart(chart + labels)
-
-    if st.button("Start Sorting"):
-        if st.session_state.data is not None:
-            st.session_state.original_array = st.session_state.data.copy()
-            # Use the mapping instead of dynamic function name generation
-            algorithm_func = ALGORITHM_FUNCTIONS[algorithm]
-            result = algorithm_func(st.session_state.data)
-            st.session_state.sorting_history = result['steps']
-            st.session_state.current_step = 0  # Reset step counter
+    # Show initial data or current animation frame
+    if st.session_state.initial_data is not None:
+        if not st.session_state.sorting_started:
+            # Show single initial visualization before sorting starts
+            st.altair_chart(visualize_array(
+                st.session_state.initial_data,
+                st.session_state.color_scheme,
+                "Initial Array"
+            ))
             
-            # Display metrics
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Comparisons", result['comparisons'])
-            col2.metric("Swaps", result['swaps'])
-            col3.metric("Time", f"{result['time']:.4f} seconds")
-
-    # Render animation controls and run animation
-    render_animation_controls()
-    run_animation()
+            if st.button("Start Sorting"):
+                st.session_state.sorting_started = True
+                algorithm_func = ALGORITHM_FUNCTIONS[algorithm]
+                result = algorithm_func(st.session_state.initial_data.copy())
+                st.session_state.sorting_history = result['steps']
+                st.session_state.current_step = 0
+                
+                # Display metrics
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Comparisons", result['comparisons'])
+                col2.metric("Swaps", result['swaps'])
+                col3.metric("Time", f"{result['time']:.4f} seconds")
+        else:
+            # Render animation controls and run animation
+            render_animation_controls()
+            run_animation()
 
     # Display algorithm details
-    st.subheader("Algorithm Details")
     if algorithm in ALGORITHM_INFO:
+        st.subheader(f"{algorithm} : Algorithm Details")
         info = ALGORITHM_INFO[algorithm]
         st.markdown(f"""
         **Time Complexity**
@@ -488,7 +435,7 @@ def main():
         #### Basic Concepts
         1. **Comparison-Based Sorting**
            - Algorithms that sort by comparing elements
-           - Examples: Bubble Sort, Quick Sort, Merge Sort
+           - Examples: Bubble Sort, Quick Sort
         
         2. **Space Complexity**
            - In-place sorting: Minimal extra space needed
@@ -515,4 +462,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
