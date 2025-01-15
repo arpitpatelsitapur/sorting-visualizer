@@ -428,6 +428,20 @@ def main():
         1. **Comparison-Based Sorting**
            - Algorithms that sort by comparing elements
            - Examples: Bubble Sort, Quick Sort
+
+           | Sorting Algorithm     | Working                                      |
+           |-----------------------|----------------------------------------------|
+           | Bubble Sort           | Compare `two adjacent` elements and `swap` accordingly |
+           | Selection Sort        | Select the `smallest` element and `place it in order` |
+           | Insertion Sort        | Insert elements into the sorted part one by one |
+           | Merge Sort            | Divide the array and merge sorted subarrays   |
+           | Quick Sort            | Partition array around a `pivot` element       |
+           | Heap Sort             | Build a `heap` and extract max/min repeatedly  |
+           | Radix Sort            | Sort elements `digit by digit` using `place values` |
+           | Bucket Sort           | Divide elements into buckets and `sort each bucket` |
+           | Shell Sort            | Sort using gaps and reduce them progressively |
+           | Counting Sort         | Count elements and place them in sorted order |
+
         
         2. **Space Complexity**
            - In-place sorting: Minimal extra space needed
